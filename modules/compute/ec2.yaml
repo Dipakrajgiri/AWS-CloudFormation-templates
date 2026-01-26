@@ -1,0 +1,9 @@
+# EC2 / Auto Scaling Module
+# Purpose:
+# - For unmanaged or legacy workloads
+#
+# Includes:
+# - Launch Template
+# - Auto Scaling Group
+# - IAM Instance Role
+# - UserData bootstrap

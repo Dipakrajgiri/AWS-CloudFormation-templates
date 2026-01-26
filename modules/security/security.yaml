@@ -1,0 +1,11 @@
+# Security Baseline Module
+# Purpose:
+# - Central place for defining network-level security rules
+# - Decoupled from compute and databases
+#
+# Includes:
+# - Security Groups for ALB, App, DB, Cache
+# - Ingress/Egress rules following least-privilege
+#
+# Outputs:
+# - Security Group IDs to be consumed by other modules

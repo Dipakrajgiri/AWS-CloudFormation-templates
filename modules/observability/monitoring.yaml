@@ -1,0 +1,8 @@
+# Monitoring Module
+# Purpose:
+# - Centralized logging and alerting
+#
+# Includes:
+# - CloudWatch Log Groups
+# - Alarms
+# - Dashboards

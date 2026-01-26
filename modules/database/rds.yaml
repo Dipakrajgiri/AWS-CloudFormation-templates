@@ -1,0 +1,9 @@
+# RDS Module
+# Purpose:
+# - Managed relational databases
+#
+# Includes:
+# - DB Subnet Group
+# - RDS Instance / Cluster
+# - Parameter & Option Groups
+# - Automated backups

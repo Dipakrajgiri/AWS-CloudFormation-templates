@@ -1,0 +1,8 @@
+# ECS Fargate Module
+# Purpose:
+# - Fully managed container workloads
+#
+# Includes:
+# - ECS Cluster
+# - Task Definition
+# - ECS Service

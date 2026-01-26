@@ -1,0 +1,8 @@
+# ElastiCache Module
+# Purpose:
+# - In-memory caching layer
+#
+# Includes:
+# - Redis/Memcached cluster
+# - Subnet Group
+# - Security Group usage

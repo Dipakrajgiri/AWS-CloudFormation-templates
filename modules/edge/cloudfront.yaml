@@ -1,0 +1,8 @@
+# CloudFront Module
+# Purpose:
+# - Global CDN and edge caching
+#
+# Includes:
+# - Distribution
+# - Origins (ALB / S3)
+# - Cache policies

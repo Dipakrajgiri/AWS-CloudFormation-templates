@@ -1,0 +1,8 @@
+# ECS on EC2 Module
+# Purpose:
+# - Container workloads using self-managed EC2 capacity
+#
+# Includes:
+# - ECS Cluster
+# - Capacity Providers
+# - Auto Scaling Group

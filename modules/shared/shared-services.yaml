@@ -1,0 +1,8 @@
+# Shared Services Module
+# Purpose:
+# - Provides shared infrastructure used across multiple workloads
+#
+# Includes:
+# - S3 buckets (logs, artifacts, backups)
+# - DynamoDB tables (state, metadata, locks)
+# - VPC Endpoints (S3, DynamoDB)

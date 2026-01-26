@@ -1,0 +1,9 @@
+# DynamoDB Module
+# Purpose:
+# - Fully serverless NoSQL database
+#
+# Includes:
+# - Table definition
+# - Indexes
+# - Autoscaling
+# - TTL

@@ -1,0 +1,8 @@
+# Lambda Module
+# Purpose:
+# - Serverless compute
+#
+# Includes:
+# - Lambda Function
+# - IAM Role
+# - Optional VPC attachment

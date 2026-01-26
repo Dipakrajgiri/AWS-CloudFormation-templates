@@ -1,0 +1,8 @@
+# Application Load Balancer Module
+# Purpose:
+# - External/internal traffic entry point
+#
+# Includes:
+# - ALB
+# - Listeners
+# - Target Groups

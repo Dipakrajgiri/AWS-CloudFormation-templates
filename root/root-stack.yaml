@@ -1,0 +1,9 @@
+# Root Stack
+# Purpose:
+# - Acts as the orchestrator for the entire infrastructure
+# - Controls creation order using nested stacks
+# - Passes parameters and wires outputs between modules
+#
+# IMPORTANT:
+# - No AWS resources should be directly created here
+# - Only nested stack references
