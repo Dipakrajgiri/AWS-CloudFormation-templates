@@ -1,9 +1,136 @@
-# RDS Module
-# Purpose:
-# - Managed relational databases
-#
-# Includes:
-# - DB Subnet Group
-# - RDS Instance / Cluster
-# - Parameter & Option Groups
-# - Automated backups
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Database module.
+  Provides a configurable RDS instance deployed in private DB subnets.
+
+Parameters:
+
+  ### Identification ###
+  ProjectName:
+    Type: String
+    Default: MyProject
+
+  Environment:
+    Type: String
+    AllowedValues: [dev, test, prod]
+
+  ### Networking ###
+  PrivateDbSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Private DB subnet IDs
+
+  DBSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security group for the database
+
+  ### Database Engine ###
+  Engine:
+    Type: String
+    Default: mysql
+    AllowedValues: [mysql, postgres]
+    Description: Database engine
+
+  EngineVersion:
+    Type: String
+    Default: '8.0'
+    Description: Engine version
+
+  DBInstanceClass:
+    Type: String
+    Default: db.t3.micro
+    Description: RDS instance class
+
+  AllocatedStorage:
+    Type: Number
+    Default: 20
+    Description: Allocated storage in GB
+
+  StorageType:
+    Type: String
+    AllowedValues: [gp2, gp3]
+    Default: gp3
+
+  ### Credentials ###
+  DBName:
+    Type: String
+    Default: appdb
+    Description: Initial database name
+
+  MasterUsername:
+    Type: String
+    Default: admin
+    Description: Master DB username
+
+  MasterUserPassword:
+    Type: String
+    NoEcho: true
+    Description: Master DB password
+
+  ### Availability & Protection ###
+  MultiAZ:
+    Type: String
+    AllowedValues: [true, false]
+    Default: false
+    Description: Enable Multi-AZ deployment
+
+  BackupRetentionPeriod:
+    Type: Number
+    Default: 7
+    Description: Number of days to retain backups
+
+  DeletionProtection:
+    Type: String
+    AllowedValues: [true, false]
+    Default: false
+    Description: Enable deletion protection
+
+Conditions:
+  EnableMultiAZ: !Equals [!Ref MultiAZ, true]
+  EnableDeletionProtection: !Equals [!Ref DeletionProtection, true]
+
+Resources:
+
+  ### DB Subnet Group ###
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: !Sub ${ProjectName}-${Environment} DB subnet group
+      SubnetIds: !Ref PrivateDbSubnetIds
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-db-subnet-group
+        - Key: Environment
+          Value: !Ref Environment
+
+  ### RDS Instance ###
+  RDSInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub ${ProjectName}-${Environment}-db
+      Engine: !Ref Engine
+      EngineVersion: !Ref EngineVersion
+      DBInstanceClass: !Ref DBInstanceClass
+      AllocatedStorage: !Ref AllocatedStorage
+      StorageType: !Ref StorageType
+      DBName: !Ref DBName
+      MasterUsername: !Ref MasterUsername
+      MasterUserPassword: !Ref MasterUserPassword
+      MultiAZ: !If [EnableMultiAZ, true, false]
+      BackupRetentionPeriod: !Ref BackupRetentionPeriod
+      DeletionProtection: !If [EnableDeletionProtection, true, false]
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroupId
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      PubliclyAccessible: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-db
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  DBEndpoint:
+    Description: Database endpoint address
+    Value: !GetAtt RDSInstance.Endpoint.Address

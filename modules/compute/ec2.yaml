@@ -1,9 +1,188 @@
-# EC2 / Auto Scaling Module
-# Purpose:
-# - For unmanaged or legacy workloads
-#
-# Includes:
-# - Launch Template
-# - Auto Scaling Group
-# - IAM Instance Role
-# - UserData bootstrap
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  Compute module. Provides a configurable EC2 Auto Scaling platform for application workloads.
+
+Parameters:
+
+  ### Identification ###
+  ProjectName:
+    Type: String
+    Default: MyProject
+
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - test
+      - prod
+
+  ### Networking ###
+  PrivateAppSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+
+  AppSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+
+  ### EC2 ###
+  AmiId:
+    Type: AWS::EC2::Image::Id
+
+  InstanceType:
+    Type: String
+    Default: t3.micro
+
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: ''
+    Description: Optional SSH key pair name
+
+  EnableDetailedMonitoring:
+    Type: String
+    AllowedValues:
+      - true
+      - false
+    Default: false
+
+  ### Auto Scaling ###
+  MinSize:
+    Type: Number
+    Default: 1
+
+  MaxSize:
+    Type: Number
+    Default: 2
+
+  DesiredCapacity:
+    Type: Number
+    Default: 1
+
+  HealthCheckGracePeriod:
+    Type: Number
+    Default: 300
+
+  ### Storage ###
+  RootVolumeSize:
+    Type: Number
+    Default: 20
+
+  RootVolumeType:
+    Type: String
+    AllowedValues:
+      - gp2
+      - gp3
+    Default: gp3
+
+  ### User Data ###
+  UserDataScript:
+    Type: String
+    Default: ''
+
+Conditions:
+  HasKeyPair: !Not
+    - !Equals
+      - !Ref KeyPairName
+      - ''
+  EnableMonitoring: !Equals
+    - !Ref EnableDetailedMonitoring
+    - true
+  HasUserData: !Not
+    - !Equals
+      - !Ref UserDataScript
+      - ''
+
+Resources:
+
+  ### IAM Role ###
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2InstanceRole
+
+  ### Launch Template ###
+  EC2LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub ${ProjectName}-${Environment}-lt
+      LaunchTemplateData:
+        ImageId: !Ref AmiId
+        InstanceType: !Ref InstanceType
+        SecurityGroupIds:
+          - !Ref AppSecurityGroupId
+        IamInstanceProfile:
+          Arn: !GetAtt EC2InstanceProfile.Arn
+        KeyName: !If
+          - HasKeyPair
+          - !Ref KeyPairName
+          - !Ref AWS::NoValue
+        Monitoring: !If
+          - EnableMonitoring
+          - Enabled: true
+          - !Ref AWS::NoValue
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: !Ref RootVolumeSize
+              VolumeType: !Ref RootVolumeType
+              DeleteOnTermination: true
+        UserData: !If
+          - HasUserData
+          - !Base64
+            Ref: UserDataScript
+          - !Ref AWS::NoValue
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub ${ProjectName}-${Environment}-app
+              - Key: Project
+                Value: !Ref ProjectName
+              - Key: Environment
+                Value: !Ref Environment
+
+  ### Auto Scaling Group ###
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub ${ProjectName}-${Environment}-asg
+      VPCZoneIdentifier: !Ref PrivateAppSubnetIds
+      LaunchTemplate:
+        LaunchTemplateId: !Ref EC2LaunchTemplate
+        Version: !GetAtt EC2LaunchTemplate.LatestVersionNumber
+      MinSize: !Ref MinSize
+      MaxSize: !Ref MaxSize
+      DesiredCapacity: !Ref DesiredCapacity
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: !Ref HealthCheckGracePeriod
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-app
+          PropagateAtLaunch: true
+        - Key: Project
+          Value: !Ref ProjectName
+          PropagateAtLaunch: true
+        - Key: Environment
+          Value: !Ref Environment
+          PropagateAtLaunch: true
+
+Outputs:
+  AutoScalingGroupName:
+    Value: !Ref AutoScalingGroup

@@ -1,8 +1,150 @@
-# Shared Services Module
-# Purpose:
-# - Provides shared infrastructure used across multiple workloads
-#
-# Includes:
-# - S3 buckets (logs, artifacts, backups)
-# - DynamoDB tables (state, metadata, locks)
-# - VPC Endpoints (S3, DynamoDB)
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  Shared services module. Provides a highly configurable S3 bucket used across workloads for logs, artifacts, backups, and shared data.
+
+Parameters:
+
+  ### Identification ###
+  ProjectName:
+    Type: String
+    Default: MyProject
+    Description: Project or client name prefix
+
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - test
+      - prod
+    Description: Deployment environment
+
+  BucketPurpose:
+    Type: String
+    Default: shared
+    Description: Logical purpose of the bucket (logs, artifacts, backups, shared)
+
+  ### S3 Configuration ###
+  BucketNameOverride:
+    Type: String
+    Default: ''
+    Description: Optional custom bucket name (leave empty for auto-generated)
+
+  EnableVersioning:
+    Type: String
+    AllowedValues:
+      - true
+      - false
+    Default: true
+    Description: Enable S3 versioning
+
+  EnableEncryption:
+    Type: String
+    AllowedValues:
+      - true
+      - false
+    Default: true
+    Description: Enable server-side encryption (SSE-S3)
+
+  EnableAccessLogging:
+    Type: String
+    AllowedValues:
+      - true
+      - false
+    Default: false
+    Description: Enable S3 access logging
+
+  EnableLifecycleRules:
+    Type: String
+    AllowedValues:
+      - true
+      - false
+    Default: false
+    Description: Enable lifecycle rules for cost optimization
+
+  LifecycleExpirationDays:
+    Type: Number
+    Default: 365
+    Description: Days after which objects expire (if lifecycle enabled)
+
+  NonCurrentVersionExpirationDays:
+    Type: Number
+    Default: 90
+    Description: Days after which non-current versions expire
+
+Conditions:
+  UseCustomBucketName: !Not
+    - !Equals
+      - !Ref BucketNameOverride
+      - ''
+  VersioningEnabled: !Equals
+    - !Ref EnableVersioning
+    - true
+  EncryptionEnabled: !Equals
+    - !Ref EnableEncryption
+    - true
+  AccessLoggingEnabled: !Equals
+    - !Ref EnableAccessLogging
+    - true
+  LifecycleEnabled: !Equals
+    - !Ref EnableLifecycleRules
+    - true
+
+Resources:
+
+  ### Shared S3 Bucket ###
+  SharedS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !If
+        - UseCustomBucketName
+        - !Ref BucketNameOverride
+        - !Sub ${ProjectName}-${Environment}-${BucketPurpose}-${AWS::AccountId}
+
+      VersioningConfiguration: !If
+        - VersioningEnabled
+        - Status: Enabled
+        - !Ref AWS::NoValue
+
+      BucketEncryption: !If
+        - EncryptionEnabled
+        - ServerSideEncryptionConfiguration:
+            - ServerSideEncryptionByDefault:
+                SSEAlgorithm: AES256
+        - !Ref AWS::NoValue
+
+      LoggingConfiguration: !If
+        - AccessLoggingEnabled
+        - DestinationBucketName: !Ref SharedS3Bucket
+          LogFilePrefix: access-logs/
+        - !Ref AWS::NoValue
+
+      LifecycleConfiguration: !If
+        - LifecycleEnabled
+        - Rules:
+            - Id: ExpireOldObjects
+              Status: Enabled
+              ExpirationInDays: !Ref LifecycleExpirationDays
+              NoncurrentVersionExpiration:
+                NoncurrentDays: !Ref NonCurrentVersionExpirationDays
+        - !Ref AWS::NoValue
+
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-${BucketPurpose}
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: !Ref BucketPurpose
+
+Outputs:
+  SharedBucketName:
+    Description: Shared S3 bucket name
+    Value: !Ref SharedS3Bucket

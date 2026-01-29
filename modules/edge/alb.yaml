@@ -1,8 +1,124 @@
-# Application Load Balancer Module
-# Purpose:
-# - External/internal traffic entry point
-#
-# Includes:
-# - ALB
-# - Listeners
-# - Target Groups
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Edge module.
+  Provides an internet-facing Application Load Balancer
+  and routes traffic to the EC2 Auto Scaling Group.
+
+Parameters:
+
+  ### Identification ###
+  ProjectName:
+    Type: String
+    Default: MyProject
+
+  Environment:
+    Type: String
+    AllowedValues: [dev, test, prod]
+
+  ### Networking ###
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID
+
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Public subnet IDs for ALB
+
+  ALBSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security group for ALB
+
+  ### Target ###
+  AutoScalingGroupName:
+    Type: String
+    Description: Auto Scaling Group to attach to ALB
+
+  ### Listener / Target Group ###
+  ListenerPort:
+    Type: Number
+    Default: 80
+
+  TargetPort:
+    Type: Number
+    Default: 80
+
+  HealthCheckPath:
+    Type: String
+    Default: /
+
+  HealthCheckInterval:
+    Type: Number
+    Default: 30
+
+  HealthCheckTimeout:
+    Type: Number
+    Default: 5
+
+  HealthyThreshold:
+    Type: Number
+    Default: 2
+
+  UnhealthyThreshold:
+    Type: Number
+    Default: 2
+
+Resources:
+
+  ### Application Load Balancer ###
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${ProjectName}-${Environment}-alb
+      Scheme: internet-facing
+      Type: application
+      Subnets: !Ref PublicSubnetIds
+      SecurityGroups:
+        - !Ref ALBSecurityGroupId
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-alb
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+  ### Target Group ###
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${ProjectName}-${Environment}-tg
+      Port: !Ref TargetPort
+      Protocol: HTTP
+      VpcId: !Ref VpcId
+      TargetType: instance
+      HealthCheckPath: !Ref HealthCheckPath
+      HealthCheckIntervalSeconds: !Ref HealthCheckInterval
+      HealthCheckTimeoutSeconds: !Ref HealthCheckTimeout
+      HealthyThresholdCount: !Ref HealthyThreshold
+      UnhealthyThresholdCount: !Ref UnhealthyThreshold
+      Matcher:
+        HttpCode: 200
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+  ### Listener ###
+  HTTPListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: !Ref ListenerPort
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  ### ASG Attachment ###
+  ASGTargetGroupAttachment:
+    Type: AWS::AutoScaling::LifecycleHook
+    DependsOn: TargetGroup
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroupName
+      LifecycleTransition: autoscaling:EC2_INSTANCE_LAUNCHING

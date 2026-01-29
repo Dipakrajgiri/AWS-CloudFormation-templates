@@ -1,8 +1,116 @@
-# Monitoring Module
-# Purpose:
-# - Centralized logging and alerting
-#
-# Includes:
-# - CloudWatch Log Groups
-# - Alarms
-# - Dashboards
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Observability module.
+  Provides basic CloudWatch monitoring and alarms
+  for compute, load balancer, and database layers.
+
+Parameters:
+
+  ### Identification ###
+  ProjectName:
+    Type: String
+    Default: MyProject
+
+  Environment:
+    Type: String
+    AllowedValues: [dev, test, prod]
+
+  ### Dependencies ###
+  AutoScalingGroupName:
+    Type: String
+    Description: Auto Scaling Group name
+
+  LoadBalancerArn:
+    Type: String
+    Description: Application Load Balancer ARN
+
+  DBInstanceIdentifier:
+    Type: String
+    Description: RDS instance identifier
+
+  ### Alarm Thresholds ###
+  EC2CPUThreshold:
+    Type: Number
+    Default: 80
+    Description: CPU percentage threshold for EC2 alarm
+
+  RDSCPUThreshold:
+    Type: Number
+    Default: 80
+    Description: CPU percentage threshold for RDS alarm
+
+  EvaluationPeriods:
+    Type: Number
+    Default: 2
+
+  PeriodSeconds:
+    Type: Number
+    Default: 300
+
+Resources:
+
+  ### Application Log Group ###
+  AppLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /${ProjectName}/${Environment}/application
+      RetentionInDays: 14
+
+  ### EC2 / ASG CPU Alarm ###
+  EC2CPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${ProjectName}-${Environment}-ec2-cpu-high
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: !Ref PeriodSeconds
+      EvaluationPeriods: !Ref EvaluationPeriods
+      Threshold: !Ref EC2CPUThreshold
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref AutoScalingGroupName
+      AlarmDescription: High EC2 CPU utilization
+      TreatMissingData: notBreaching
+
+  ### ALB Unhealthy Host Alarm ###
+  ALBUnhealthyHostsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${ProjectName}-${Environment}-alb-unhealthy-hosts
+      MetricName: UnHealthyHostCount
+      Namespace: AWS/ApplicationELB
+      Statistic: Average
+      Period: !Ref PeriodSeconds
+      EvaluationPeriods: !Ref EvaluationPeriods
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Select [1, !Split ['/', !Ref LoadBalancerArn]]
+      AlarmDescription: Unhealthy targets behind ALB
+      TreatMissingData: notBreaching
+
+  ### RDS CPU Alarm ###
+  RDSCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${ProjectName}-${Environment}-rds-cpu-high
+      MetricName: CPUUtilization
+      Namespace: AWS/RDS
+      Statistic: Average
+      Period: !Ref PeriodSeconds
+      EvaluationPeriods: !Ref EvaluationPeriods
+      Threshold: !Ref RDSCPUThreshold
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref DBInstanceIdentifier
+      AlarmDescription: High RDS CPU utilization
+      TreatMissingData: notBreaching
+
+Outputs:
+  DashboardName:
+    Description: Logical dashboard name placeholder
+    Value: !Sub ${ProjectName}-${Environment}-monitoring
