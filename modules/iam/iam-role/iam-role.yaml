@@ -1,0 +1,115 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Reusable IAM Role module.
+  Creates a single IAM Role with a fully parameterized trust policy
+  and attaches managed policy ARNs passed via parameters.
+  Physical name and Name tag are auto-generated using
+  Project, Environment, and Name parameters.
+
+Parameters:
+  Project:
+    Type: String
+    Description: Project name used for naming and tagging
+
+  Environment:
+    Type: String
+    Description: Environment name (e.g. dev, test, prod)
+
+  Name:
+    Type: String
+    Description: >
+      Logical role name (e.g. app, lambda-exec, cicd).
+      This value is combined with Project and Environment
+      to generate the physical IAM Role name.
+
+  AssumeRolePolicyDocument:
+    Type: String
+    Description: >
+      JSON trust policy document defining who can assume this role.
+      Must be a valid IAM policy JSON string.
+
+  AttachedPolicyArns:
+    Type: List<String>
+    Description: >
+      List of IAM Managed Policy ARNs to attach to the role.
+      Can include AWS-managed or custom managed policies.
+
+  Path:
+    Type: String
+    Default: /
+    Description: Optional IAM role path
+
+  MaxSessionDuration:
+    Type: Number
+    Default: 3600
+    Description: >
+      Maximum session duration (in seconds) for the role.
+      Valid range: 3600-43200
+
+  EnablePermissionsBoundary:
+    Type: String
+    AllowedValues: [true, false]
+    Default: false
+    Description: Whether to attach a permissions boundary to the role
+
+  PermissionsBoundaryArn:
+    Type: String
+    Default: ''
+    Description: ARN of the permissions boundary policy
+
+  ExtraTagKey:
+    Type: String
+    Default: ''
+    Description: Optional extra tag key
+
+  ExtraTagValue:
+    Type: String
+    Default: ''
+    Description: Optional extra tag value
+
+Conditions:
+  UsePermissionsBoundary: !And
+    - !Equals [!Ref EnablePermissionsBoundary, true]
+    - !Not [!Equals [!Ref PermissionsBoundaryArn, '']]
+
+  HasExtraTag: !And
+    - !Not [!Equals [!Ref ExtraTagKey, '']]
+    - !Not [!Equals [!Ref ExtraTagValue, '']]
+
+Resources:
+  IamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Project}-${Environment}-iam-role-${Name}'
+      Path: !Ref Path
+      AssumeRolePolicyDocument: !Ref AssumeRolePolicyDocument
+      ManagedPolicyArns: !Ref AttachedPolicyArns
+      MaxSessionDuration: !Ref MaxSessionDuration
+      PermissionsBoundary: !If
+        - UsePermissionsBoundary
+        - !Ref PermissionsBoundaryArn
+        - !Ref AWS::NoValue
+      Tags:
+        - Key: Project
+          Value: !Ref Project
+
+        - Key: Environment
+          Value: !Ref Environment
+
+        - Key: Name
+          Value: !Sub '${Project}-${Environment}-iam-role-${Name}'
+
+        - !If
+          - HasExtraTag
+          - Key: !Ref ExtraTagKey
+            Value: !Ref ExtraTagValue
+          - !Ref AWS::NoValue
+
+Outputs:
+  RoleArn:
+    Description: ARN of the IAM Role
+    Value: !GetAtt IamRole.Arn
+
+  RoleName:
+    Description: Physical name of the IAM Role
+    Value: !Ref IamRole

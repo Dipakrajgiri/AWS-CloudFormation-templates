@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  Reusable IAM Group module.
+  Creates a single IAM Group with optional attached managed policies.
+  Fully parameterized, environment-agnostic, production-grade.
+
+Parameters:
+  Project:
+    Type: String
+    Description: Project name used for naming
+
+  Environment:
+    Type: String
+    Description: Environment name (e.g. dev, test, prod)
+
+  Name:
+    Type: String
+    Description: Logical group name (e.g. admins, dev-team). Combined with Project and Environment.
+
+  AttachedPolicyArns:
+    Type: List<String>
+    Default: ''
+    Description: Optional comma-separated list of IAM Managed Policy ARNs to attach (e.g., arn1,arn2).
+
+  Path:
+    Type: String
+    Default: '/'
+    Description: Optional IAM group path
+
+Conditions:
+  # Only attach managed policies if list is not empty
+  HasAttachedPolicies: !Not
+    - !Equals
+      - !Select [ 0, !Ref AttachedPolicyArns ]
+      - ""
+
+Resources:
+  IamGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Sub '${Project}-${Environment}-iam-group-${Name}'
+      Path: !Ref Path
+      ManagedPolicyArns: !If
+        - HasAttachedPolicies
+        - !Ref AttachedPolicyArns
+        - !Ref AWS::NoValue
+
+Outputs:
+  GroupName:
+    Description: Physical name of the IAM Group
+    Value: !Ref IamGroup
+
+  GroupArn:
+    Description: ARN of the IAM Group
+    Value: !GetAtt IamGroup.Arn

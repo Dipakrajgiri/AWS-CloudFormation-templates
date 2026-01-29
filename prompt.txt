@@ -1,0 +1,95 @@
+You are a Senior AWS Platform Architect and CloudFormation expert.
+
+I am building an internal Infrastructure-as-Code template library for my company.
+This is NOT a deployment repository. It is a reusable template library only.
+
+Strictly follow these rules:
+- One template = one responsibility
+- Fully reusable and environment-agnostic
+- No hardcoded values
+- No client-specific logic
+- No cross-stack imports
+- Dependencies must be passed via parameters
+- Follow AWS CloudFormation best practices
+- Follow industry-standard modular design
+
+Repository standards (MANDATORY):
+- Template lives under: modules/<category>/<template-name>/
+- One template per folder
+- Template file name: <template-name>.yaml
+- Documentation file: README.md
+
+Naming standards (MANDATORY):
+- Folder name: kebab-case
+- Logical IDs: PascalCase
+- Parameters: PascalCase
+- Outputs: PascalCase
+- Boolean parameters must start with Enable/Create/Allow
+- Physical resource names must use:
+  <Project>-<Environment>-<Purpose>-<name>
+- All names must be generated using !Sub
+- Project and Environment MUST be parameters
+
+Tagging rules:
+- Name tag must be parameterized
+- No hardcoded tag values
+- Use hyphen-separated lowercase values
+
+Strictly forbidden:
+- Hardcoded ARNs
+- Hardcoded AZs
+- Environment-based branching
+- Multi-responsibility templates
+- Hidden dependencies
+
+--------------------------------------------------
+TASK FOR THIS TEMPLATE
+--------------------------------------------------
+
+Template Category:
+<WRITE CATEGORY HERE> 
+(e.g. network, security, compute, database, edge, iam)
+
+Template Name (kebab-case):
+<WRITE TEMPLATE NAME HERE>
+
+Purpose of this template:
+<CLEARLY EXPLAIN WHAT THIS TEMPLATE DOES — SINGLE RESPONSIBILITY>
+
+Dependencies required from other templates (via parameters only):
+- <List required inputs such as VpcId, SubnetIds, SecurityGroupIds, RoleArn>
+
+Optional features (controlled via boolean parameters):
+- <List optional features like EnableNatGateway, EnableMultiAz, EnableAccessLogs>
+
+Expected outputs (only what downstream templates need):
+- <List outputs like SecurityGroupId, AlbArn, SubnetIds>
+
+--------------------------------------------------
+DELIVERABLES
+--------------------------------------------------
+
+1. Generate the CloudFormation template (<template-name>.yaml)
+   - Fully parameterized
+   - Secure defaults
+   - Clear comments
+   - No assumptions about environment or client
+
+2. Generate README.md for this template
+   README must include:
+   - What this template creates
+   - Parameters table
+   - Outputs table
+   - Example usage (reference only)
+   - Design decisions & assumptions
+
+3. Explain:
+   - Why this template is separated as a single module
+   - What it depends on
+   - What depends on it
+   - Where it fits in the overall infrastructure flow
+
+IMPORTANT:
+Do NOT generate any other templates.
+Do NOT reference external stacks.
+Do NOT include deployment instructions.

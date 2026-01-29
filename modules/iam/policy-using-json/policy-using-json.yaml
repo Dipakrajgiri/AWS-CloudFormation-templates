@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Generic reusable IAM Managed Policy module.
+  Creates a single IAM Managed Policy from JSON string.
+  Tags removed to ensure CFN validation passes.
+
+Parameters:
+  Project:
+    Type: String
+    Description: Project name for naming
+
+  Environment:
+    Type: String
+    Description: Environment name
+
+  Name:
+    Type: String
+    Description: Base name of the policy
+
+  PolicyDocument:
+    Type: String
+    Description: JSON policy document as string
+
+  Description:
+    Type: String
+    Default: ''
+    Description: Optional description
+
+Resources:
+  IamManagedPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub '${Project}-${Environment}-iam-policy-${Name}'
+      Description: !Ref Description
+      PolicyDocument: !Ref PolicyDocument
+
+Outputs:
+  PolicyArn:
+    Description: ARN of the created IAM Managed Policy
+    Value: !Ref IamManagedPolicy
+
+  PolicyName:
+    Description: Physical name of the IAM Managed Policy
+    Value: !Sub '${Project}-${Environment}-iam-policy-${Name}'

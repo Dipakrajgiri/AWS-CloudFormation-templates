@@ -1,0 +1,141 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  Reusable IAM User module.
+  Creates a single IAM User with optional:
+  - Managed Policy attachments
+  - Group membership
+  - Access Key for programmatic access
+  - Permissions boundary
+  Fully parameterized, environment-agnostic, production-grade.
+
+Parameters:
+  Project:
+    Type: String
+    Description: Project name used for naming and tagging
+
+  Environment:
+    Type: String
+    Description: Environment name (e.g., dev, test, prod)
+
+  Name:
+    Type: String
+    Description: Logical user name (e.g., app, lambda, deploy). Combined with Project and Environment.
+
+  Path:
+    Type: String
+    Default: '/'
+    Description: Optional IAM user path
+
+  GroupNames:
+    Type: List<String>
+    Default: ''
+    Description: Optional list of IAM Group names to attach this user to
+
+  AttachedPolicyArns:
+    Type: List<String>
+    Default: ''
+    Description: Optional list of IAM Managed Policy ARNs to attach directly
+
+  EnableAccessKey:
+    Type: String
+    AllowedValues: [true, false]
+    Default: false
+    Description: Whether to create programmatic access (Access Key)
+
+  EnablePermissionsBoundary:
+    Type: String
+    AllowedValues: [true, false]
+    Default: false
+    Description: Whether to attach a permissions boundary
+
+  PermissionsBoundaryArn:
+    Type: String
+    Default: ''
+    Description: ARN of the permissions boundary (required if EnablePermissionsBoundary=true)
+
+  ExtraTagKey:
+    Type: String
+    Default: ''
+    Description: Optional extra tag key
+
+  ExtraTagValue:
+    Type: String
+    Default: ''
+    Description: Optional extra tag value
+
+Conditions:
+  UsePermissionsBoundary: !And
+    - !Equals [!Ref EnablePermissionsBoundary, true]
+    - !Not [!Equals [!Ref PermissionsBoundaryArn, '']]
+
+  HasExtraTag: !And
+    - !Not [!Equals [!Ref ExtraTagKey, '']]
+    - !Not [!Equals [!Ref ExtraTagValue, '']]
+
+  CreateAccessKey: !Equals [!Ref EnableAccessKey, true]
+
+  AttachToGroups: !Not
+    - !Equals
+      - !Select [0, !Ref GroupNames]
+      - ""
+
+  AttachManagedPolicies: !Not
+    - !Equals
+      - !Select [0, !Ref AttachedPolicyArns]
+      - ""
+
+Resources:
+  IamUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Sub '${Project}-${Environment}-iam-user-${Name}'
+      Path: !Ref Path
+      PermissionsBoundary: !If
+        - UsePermissionsBoundary
+        - !Ref PermissionsBoundaryArn
+        - !Ref AWS::NoValue
+      Groups: !If
+        - AttachToGroups
+        - !Ref GroupNames
+        - !Ref AWS::NoValue
+      ManagedPolicyArns: !If
+        - AttachManagedPolicies
+        - !Ref AttachedPolicyArns
+        - !Ref AWS::NoValue
+      Tags:
+        - Key: Project
+          Value: !Ref Project
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Name
+          Value: !Sub '${Project}-${Environment}-iam-user-${Name}'
+        - !If
+          - HasExtraTag
+          - Key: !Ref ExtraTagKey
+            Value: !Ref ExtraTagValue
+          - !Ref AWS::NoValue
+
+  IamAccessKey:
+    Type: AWS::IAM::AccessKey
+    Condition: CreateAccessKey
+    Properties:
+      UserName: !Ref IamUser
+
+Outputs:
+  UserName:
+    Description: Physical name of the IAM User
+    Value: !Ref IamUser
+
+  UserArn:
+    Description: ARN of the IAM User
+    Value: !GetAtt IamUser.Arn
+
+  AccessKeyId:
+    Condition: CreateAccessKey
+    Description: Access Key ID (if created)
+    Value: !Ref IamAccessKey
+
+  SecretAccessKey:
+    Condition: CreateAccessKey
+    Description: Secret Access Key (if created)
+    Value: !GetAtt IamAccessKey.SecretAccessKey
