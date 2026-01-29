@@ -1,11 +1,16 @@
-# IAM Role Module
+# IAM User Module
 
 ## Purpose
 
-This CloudFormation template creates a **reusable IAM Role module**.
-It allows you to define a fully parameterized **trust (assume role) policy**, attach one or more **managed policy ARNs**, and optionally apply a **permissions boundary**.
+This CloudFormation template creates a **reusable IAM User module**.
+It allows you to define a single IAM User with optional:
 
-The IAM Role name and tags are **automatically standardized** using `Project`, `Environment`, and `Name` parameters, making this template ideal for **multi-environment, multi-project infrastructures**.
+* Managed Policy attachments
+* Group membership
+* Programmatic access via Access Key
+* Permissions boundary
+
+The IAM User name and tags are **automatically standardized** using `Project`, `Environment`, and `Name` parameters, making this template ideal for **multi-environment, multi-project infrastructures**.
 
 This module is designed to be **modular, flexible, and production-ready**.
 
@@ -13,52 +18,56 @@ This module is designed to be **modular, flexible, and production-ready**.
 
 ## Resources Created
 
-| Resource  | Type             | Description                                                                                                                          |
-| --------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `IamRole` | `AWS::IAM::Role` | Creates a single IAM Role with a configurable trust policy, managed policies, optional permissions boundary, and standardized naming |
+| Resource       | Type                  | Description                                                                                          |
+| -------------- | --------------------- | ---------------------------------------------------------------------------------------------------- |
+| `IamUser`      | `AWS::IAM::User`      | Creates a single IAM User with optional group membership, managed policies, and permissions boundary |
+| `IamAccessKey` | `AWS::IAM::AccessKey` | Optional Access Key for programmatic access (created only if `EnableAccessKey=true`)                 |
 
 ---
 
 ## Naming Convention
 
-The physical IAM Role name is generated automatically:
+The physical IAM User name is generated automatically:
 
 ```
-<Project>-<Environment>-iam-role-<Name>
+<Project>-<Environment>-iam-user-<Name>
 ```
 
 **Example:**
 
 ```
-acme-dev-iam-role-lambda-exec
+acme-dev-iam-user-lambda
 ```
 
 ---
 
 ## Parameters
 
-| Parameter                   | Type           | Required | Description                                                         |
-| --------------------------- | -------------- | -------- | ------------------------------------------------------------------- |
-| `Project`                   | `String`       | Yes      | Project name used for naming and tagging                            |
-| `Environment`               | `String`       | Yes      | Environment name (e.g. dev, test, prod)                             |
-| `Name`                      | `String`       | Yes      | Logical role name (e.g. app, lambda-exec, cicd)                     |
-| `AssumeRolePolicyDocument`  | `String`       | Yes      | JSON trust policy document defining who can assume the role         |
-| `AttachedPolicyArns`        | `List<String>` | Yes      | List of IAM Managed Policy ARNs to attach                           |
-| `Path`                      | `String`       | No       | IAM role path (default: `/`)                                        |
-| `MaxSessionDuration`        | `Number`       | No       | Maximum session duration in seconds (default: `3600`, max: `43200`) |
-| `EnablePermissionsBoundary` | `String`       | No       | Whether to attach a permissions boundary (`true` / `false`)         |
-| `PermissionsBoundaryArn`    | `String`       | No       | ARN of the permissions boundary policy                              |
-| `ExtraTagKey`               | `String`       | No       | Optional additional tag key                                         |
-| `ExtraTagValue`             | `String`       | No       | Optional additional tag value                                       |
+| Parameter                   | Type           | Required | Description                                                                    |
+| --------------------------- | -------------- | -------- | ------------------------------------------------------------------------------ |
+| `Project`                   | `String`       | Yes      | Project name used for naming and tagging                                       |
+| `Environment`               | `String`       | Yes      | Environment name (e.g., dev, test, prod)                                       |
+| `Name`                      | `String`       | Yes      | Logical user name (e.g., app, lambda, deploy)                                  |
+| `Path`                      | `String`       | No       | IAM user path (default: `/`)                                                   |
+| `GroupNames`                | `List<String>` | No       | Optional list of IAM Group names to attach this user to                        |
+| `AttachedPolicyArns`        | `List<String>` | No       | Optional list of IAM Managed Policy ARNs to attach directly                    |
+| `EnableAccessKey`           | `String`       | No       | Whether to create programmatic access (`true` / `false`, default: `false`)     |
+| `EnablePermissionsBoundary` | `String`       | No       | Whether to attach a permissions boundary (`true` / `false`, default: `false`)  |
+| `PermissionsBoundaryArn`    | `String`       | No       | ARN of the permissions boundary (required if `EnablePermissionsBoundary=true`) |
+| `ExtraTagKey`               | `String`       | No       | Optional additional tag key                                                    |
+| `ExtraTagValue`             | `String`       | No       | Optional additional tag value                                                  |
 
 ---
 
 ## Conditions
 
-| Condition                | Description                                                         |
-| ------------------------ | ------------------------------------------------------------------- |
-| `UsePermissionsBoundary` | Attaches a permissions boundary only if enabled and ARN is provided |
-| `HasExtraTag`            | Adds an extra tag only if both key and value are provided           |
+| Condition                | Description                                                                   |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| `UsePermissionsBoundary` | Attaches a permissions boundary only if enabled and ARN is provided           |
+| `HasExtraTag`            | Adds an extra tag only if both `ExtraTagKey` and `ExtraTagValue` are provided |
+| `CreateAccessKey`        | Creates an Access Key only if `EnableAccessKey=true`                          |
+| `AttachToGroups`         | Attaches the user to IAM Groups only if `GroupNames` is provided              |
+| `AttachManagedPolicies`  | Attaches managed policies only if `AttachedPolicyArns` is provided            |
 
 ---
 
@@ -70,7 +79,7 @@ The following tags are always applied:
 | ------------- | ------------------ |
 | `Project`     | Project name       |
 | `Environment` | Environment name   |
-| `Name`        | Full IAM Role name |
+| `Name`        | Full IAM User name |
 
 An **additional custom tag** is added when `ExtraTagKey` and `ExtraTagValue` are provided.
 
@@ -78,53 +87,46 @@ An **additional custom tag** is added when `ExtraTagKey` and `ExtraTagValue` are
 
 ## Outputs
 
-| Output     | Description                   |
-| ---------- | ----------------------------- |
-| `RoleArn`  | ARN of the created IAM Role   |
-| `RoleName` | Physical name of the IAM Role |
+| Output            | Description                    |
+| ----------------- | ------------------------------ |
+| `UserName`        | Physical name of the IAM User  |
+| `UserArn`         | ARN of the IAM User            |
+| `AccessKeyId`     | Access Key ID (if created)     |
+| `SecretAccessKey` | Secret Access Key (if created) |
 
 ---
 
 ## Testing Example (Test Values)
 
-This example can be used to **test the template immediately**.
-Replace the `TemplateURL` with your S3 or local path.
+This example can be used to **test the template immediately**. Replace the `TemplateURL` with your S3 or local path.
 
 ```yaml
 Resources:
-  TestIamRoleStack:
+  TestIamUserStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: https://s3.amazonaws.com/my-cfn-templates/iam-role/template.yaml
+      TemplateURL: https://s3.amazonaws.com/my-cfn-templates/iam-user/template.yaml
       Parameters:
         Project: "acme"
         Environment: "dev"
-        Name: "lambda-exec"
-        AssumeRolePolicyDocument: >
-          {
-            "Version": "2012-10-17",
-            "Statement": [
-              {
-                "Effect": "Allow",
-                "Principal": {
-                  "Service": "lambda.amazonaws.com"
-                },
-                "Action": "sts:AssumeRole"
-              }
-            ]
-          }
+        Name: "lambda"
+        Path: "/service/"
+        GroupNames:
+          - dev-iam-group
         AttachedPolicyArns:
-          - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-        MaxSessionDuration: 3600
+          - arn:aws:iam::aws:policy/AdministratorAccess
+        EnableAccessKey: true
         EnablePermissionsBoundary: false
+        ExtraTagKey: "Team"
+        ExtraTagValue: "DevOps"
 ```
 
 ---
 
 ## Use Cases
 
-* Lambda execution roles
-* ECS / EKS task roles
-* CI/CD pipeline roles
-* Cross-account IAM roles
-* Standardized enterprise IAM role management
+* User for Lambda or EC2 applications
+* CI/CD deployment users
+* Standardized enterprise IAM user management
+* Users with temporary programmatic access
+* Multi-environment or multi-project setups
